@@ -30,7 +30,7 @@ def get_args():
                         '--out_dir',
                         help='Output directory',
                         required=False,
-                        default='index_files')
+                        default='plant_point_clouds')
 
     parser.add_argument('-s',
                         '--season',
@@ -65,6 +65,11 @@ def get_args():
                         help='Final scan date to search for within index file names',
                         nargs='+',
                         required=True)
+    
+    parser.add_argument('-g',
+                        '--genotype',
+                        help='Name of genotype/s to collect.',
+                        nargs='+')
     
     return parser.parse_args()
 
@@ -311,8 +316,10 @@ def search_files(files, substrings):
 def download_plant_by_index(plant_name):
     args = get_args()
     print(plant_name)
-    folder = Path(f"plant_plys/{plant_name}_timeseries")
-    folder.mkdir(exist_ok=True,parents=True)
+    folder = os.path.join(args.out_dir, '_'.join([plant_name, 'timeseries']))
+    # folder = Path(f"plant_plys/{plant_name}_timeseries")
+    # folder.mkdir(exist_ok=True,parents=True)
+    os.makedirs(folder, exist_ok=True)
     # go through the dates
     for date in all_dates:
         print(date)
@@ -324,7 +331,7 @@ def download_plant_by_index(plant_name):
         if args.season == 'season_10_lettuce_yr_2020':
             ipath = f"https://data.cyverse.org/dav-anon/iplant/commons/community_released/phytooracle/{season_path}/{level}/scanner3DTop/{date}/individual_plants_out/{date}_segmentation_pointclouds.tar"
         else:
-            ipath = f"https://data.cyverse.org/dav-anon/iplant/commons/community_released/phytooracle/{season_path}/{level}/scanner3DTop/{date}/{args.crop}/individual_plants_out/{date}_segmentation_pointclouds.tar"
+            ipath = f"https://data.cyverse.org/dav-anon/iplant/commons/community_released/phytooracle/{season_path}/{level}/scanner3DTop/{args.crop}/{date}/individual_plants_out/{date}_segmentation_pointclouds.tar"
         #print(ipath)
         # look through all_dates for the plant data
         # index by plant
@@ -344,6 +351,7 @@ def download_plant_by_index(plant_name):
                 # if we don't add a 512 to the start we get the tar header also
                 start = ply["block"]*512 + 512
                 end = start+ ply["file_size"]
+                print(ipath)
                 ply_buffer = make_range_request(ipath,start,end)
 
                 with open(res,"wb") as phile:
@@ -356,15 +364,15 @@ def main():
     args = get_args()
 
     # Create output directory
-    if not os.path.isdir(args.out_dir):
-
-        os.makedirs(args.out_dir)
+    os.makedirs(args.out_dir, exist_ok=True)
 
     # Get the working directory
     wd = os.getcwd()
     
     # Download data
-    if not os.path.isdir(args.out_dir):
+    if not os.path.isdir("index_files"):
+
+        os.makedirs("index_files", exist_ok=True)
         data_path = download_data(
                                 crop = "lettuce",
                                 season = args.season,
@@ -372,9 +380,9 @@ def main():
                                 sensor = args.instrument,
                                 sequence = '%/individual_plants_out/%_segmentation_pointclouds_index',
                                 cwd = wd,
-                                outdir = args.out_dir)
+                                outdir = "index_files")
     
-    files = find_files("environmental_association", "_segmentation_pointclouds_index")
+    files = find_files("index_files", "_segmentation_pointclouds_index")
     matching_files = search_files(files, args.final_date)
 
     # here I was getting the plants that made it all the way through the season, so I checked the last date of the season to get the plant names that are still in the field at that time
@@ -388,11 +396,15 @@ def main():
     paths = [f.split(" ")[-1] for f in last_index.split("\n")]
     #we only want the names in my case if the final.ply is part of the name
     plants = [f.split("/")[-2] for f in paths if "final.ply" in f]
-    filtered =[]
-    for p in plants:
-        for genotype in "Salinas, Emperor, Valmaine, Green_Towers".split(","):
-            if genotype.strip() in p:
-                filtered.append(p)
+    
+    if args.genotype:
+        filtered =[]
+        for p in plants:
+            for genotype in args.genotype:
+                if genotype.strip() in p:
+                    filtered.append(p)
+
+        plants = filtered
 
     # figure out how many plants we have already generated timeseries representations for so we don't have to go back to these ones
     try:
@@ -406,16 +418,15 @@ def main():
     print(len(plant_names))
     # per index file get the date so we can make a dictionary containing all the dates
     index_files = sorted(files)
-
+    print(index_files)
     global all_dates
     all_dates ={}
-    for ifile in index_files[:1]:
+    for ifile in index_files:
         date = '_'.join([ifile.split(os.sep)[-2], args.crop])
     #     date = str(ifile).split("_")[0]
         date_json = json_index(date, ifile)
         all_dates[date] = date_json
 
-    print(all_dates)
     # we can then start up a mapping between those cores and the total list of plant names, which we then map to the download_plany_by_index function
     # this allows us to tackle the independent download tasks in parallel with however many cores we have available.
     with mp.Pool(mp.cpu_count()) as pool:
