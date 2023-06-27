@@ -70,4 +70,22 @@ RUN export C_INCLUDE_PATH=/usr/include/gdal
 RUN apt-get install -y locales && locale-gen en_US.UTF-8
 ENV LANG='en_US.UTF-8' LANGUAGE='en_US:en' LC_ALL='en_US.UTF-8'
 
+RUN wget -qO - https://packages.irods.org/irods-signing-key.asc | apt-key add -
+RUN echo "deb [arch=amd64] https://packages.irods.org/apt/ $(lsb_release -sc) main" | tee /etc/apt/sources.list.d/renci-irods.list
+
+RUN apt-get update -y \
+    && apt-get upgrade -y
+
+RUN wget -c \
+    http://security.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2.19_amd64.deb
+RUN apt-get install -y \
+    ./libssl1.1_1.1.1f-1ubuntu2.19_amd64.deb
+RUN rm -rf \
+    ./libssl1.1_1.1.1f-1ubuntu2.19_amd64.deb
+RUN apt install -y irods-icommands
+RUN mkdir -p /root/.irods
+RUN echo "{ \"irods_zone_name\": \"iplant\", \"irods_host\": \"data.cyverse.org\", \"irods_port\": 1247, \"irods_user_name\": \"$IRODS_USER\" }" > /root/.irods/irods_environment.json
+RUN apt-get autoremove -y
+RUN apt-get clean
+
 ENTRYPOINT [ "/usr/local/bin/python3.7", "/opt/template.py" ]
