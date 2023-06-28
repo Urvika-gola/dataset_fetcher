@@ -43,8 +43,8 @@ def get_args():
                         '--crop',
                         help='Crop name of data to download',
                         type=str,
-                        choices=['sorghum', 'lettuce'],
-                        required=True)
+                        choices=['sorghum', 'lettuce', 'NA'],
+                        default="NA")
     
     parser.add_argument('-i',
                         '--instrument',
@@ -284,8 +284,8 @@ def download_data(crop, season, level, sensor, sequence, cwd, outdir, download=T
                 print(f'Downloading {item}.')
                 download_files(item=item, out_path=os.path.join(cwd, out_path))
                 
-            # os.chdir(cwd)
-
+            os.chdir(cwd)
+        
         return out_path
     
     except Exception as e:
@@ -322,17 +322,17 @@ def download_plant_by_index(plant_name):
     os.makedirs(folder, exist_ok=True)
     # go through the dates
     for date in all_dates:
-        print(date)
+        # print(date)
         irods_dict = get_dict()
         season_path = irods_dict['season'][args.season]
         level = irods_dict['level'][args.level]
 
         # construct a url for the date
-        if args.season == 'season_10_lettuce_yr_2020':
+        if season_path == 'season_10_lettuce_yr_2020':
             ipath = f"https://data.cyverse.org/dav-anon/iplant/commons/community_released/phytooracle/{season_path}/{level}/scanner3DTop/{date}/individual_plants_out/{date}_segmentation_pointclouds.tar"
         else:
             ipath = f"https://data.cyverse.org/dav-anon/iplant/commons/community_released/phytooracle/{season_path}/{level}/scanner3DTop/{args.crop}/{date}/individual_plants_out/{date}_segmentation_pointclouds.tar"
-        #print(ipath)
+        # print(ipath)
         # look through all_dates for the plant data
         # index by plant
         index_date = all_dates[date]
@@ -373,14 +373,15 @@ def main():
     if not os.path.isdir("index_files"):
 
         os.makedirs("index_files", exist_ok=True)
-        data_path = download_data(
-                                crop = "lettuce",
-                                season = args.season,
-                                level = args.level,
-                                sensor = args.instrument,
-                                sequence = '%/individual_plants_out/%_segmentation_pointclouds_index',
-                                cwd = wd,
-                                outdir = "index_files")
+        download_data(
+                    crop = args.crop,
+                    season = args.season,
+                    level = args.level,
+                    sensor = args.instrument,
+                    sequence = '%/individual_plants_out/%_segmentation_pointclouds_index',
+                    cwd = wd,
+                    outdir = "index_files"
+                    )
     
     files = find_files("index_files", "_segmentation_pointclouds_index")
     matching_files = search_files(files, args.final_date)
@@ -422,7 +423,18 @@ def main():
     global all_dates
     all_dates ={}
     for ifile in index_files:
-        date = '_'.join([ifile.split(os.sep)[-2], args.crop])
+        if not args.season == '10':
+            match = re.search(r'\d{4}-\d{2}-\d{2}__\d{2}-\d{2}-\d{2}-\d{3}', ifile.split(os.sep)[-1])
+        else:
+            match = re.search(r'\d{4}-\d{2}-\d{2}', ifile.split(os.sep)[-1])
+        
+        if match:
+            date = match.group()
+
+        if not args.season == '10':
+            date = '_'.join([date, args.crop])
+        
+        print(date)
     #     date = str(ifile).split("_")[0]
         date_json = json_index(date, ifile)
         all_dates[date] = date_json
