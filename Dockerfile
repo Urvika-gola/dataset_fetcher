@@ -88,4 +88,4 @@ RUN echo "{ \"irods_zone_name\": \"iplant\", \"irods_host\": \"data.cyverse.org\
 RUN apt-get autoremove -y
 RUN apt-get clean
 
-ENTRYPOINT [ "/usr/local/bin/python3.7", "/opt/template.py" ]
+ENTRYPOINT [ "/usr/local/bin/python3.7", "/opt/fetch_individual_point_clouds.py" ]
