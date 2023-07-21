@@ -75,7 +75,7 @@ def get_args():
 
 
 #-------------------------------------------------------------------------------
-def json_index(date, index_filename, writeout=False):
+def json_index(date, index_filename, writeout=True):
     # index_filename = f"{date}_segmentation_pointclouds_index"
     json_index = {}
 
@@ -441,8 +441,8 @@ def main():
 
     # we can then start up a mapping between those cores and the total list of plant names, which we then map to the download_plany_by_index function
     # this allows us to tackle the independent download tasks in parallel with however many cores we have available.
-    with mp.Pool(mp.cpu_count()) as pool:
-       pool.map(download_plant_by_index,plant_names)
+    # with mp.Pool(mp.cpu_count()) as pool:
+    #    pool.map(download_plant_by_index,plant_names)
 
 
 # --------------------------------------------------
