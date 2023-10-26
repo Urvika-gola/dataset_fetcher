@@ -75,15 +75,16 @@ def get_args():
 
 
 #-------------------------------------------------------------------------------
-def json_index(date, index_filename, writeout=True):
+def json_index(date, index_filename, season, crop, level, instrument, writeout=True):
     # index_filename = f"{date}_segmentation_pointclouds_index"
-    json_index = {}
+    json_list = []
 
     #sometimes theres' just no file for that date
     try:
         index_file = open(index_filename,"r").read()
         # for each line in the file make an element in the dictionary by plantname
         lines = index_file.split("\n")
+        plant_files = {}  # Temporary storage for files per plant
         for line in lines:
             if "ply" in line:
                 # get size
@@ -94,12 +95,40 @@ def json_index(date, index_filename, writeout=True):
                 file_size = int(parts[4])
                 path = Path(parts[7])
                 name = path.parent.stem
-                json_index.setdefault(name,[]).append({"block":block,"file_size":file_size,"path":str(path),"filename":path.stem})
+                plant_files.setdefault(name, []).append({
+                    "block": block,
+                    "file_size": file_size,
+                    "path": str(path),
+                    "filename": path.stem
+                })
+
+        date_without_crop = date.rsplit("_", 1)[0]
+        year = date_without_crop[:4]
+        for plant_name, files in plant_files.items():
+            pattern = re.compile(r'^(.+)_[0-9]+$')
+            match = pattern.match(plant_name)
+            genotype = match.group(1) if match else plant_name
+
+            plant_dict = {
+                "plant_name": plant_name,
+                "genotype" : genotype,
+                "season": season,
+                "crop_type": crop,
+                "year_of_planting": year,
+                "level": level,
+                "instrument": instrument,
+                "scan_date": date_without_crop,
+                "files": files,
+                "id": plant_name + '_' + date_without_crop
+            }
+            json_list.append(plant_dict)
+
         if writeout:
-            print('Writing to file.')
+            print(f'Writing to JSON file {index_filename}.')
             with open(f"{index_filename}.json","w") as phile:
-                phile.write(json.dumps(json_index))
-        
+                json_str = json.dumps(json_list, indent=4)
+                phile.write(json_str)
+
     except Exception as e:
         print(e)
         print("date missing tar index", date)
@@ -168,6 +197,7 @@ def get_file_list(data_path, sequence):
     Output: 
         - List of files matching the season, level, sensor, and sequence
     '''
+
     result = sp.run(f'ilocate {os.path.join(data_path, "%", f"{sequence}")}', stdout=sp.PIPE, shell=True)
     files = result.stdout.decode('utf-8').split('\n')
 
@@ -436,13 +466,15 @@ def main():
         
         print(date)
     #     date = str(ifile).split("_")[0]
-        date_json = json_index(date, ifile)
+        irods_dict = get_dict()
+        date_json = json_index(date, ifile, args.season, args.crop, args.level, irods_dict['sensor'][args.instrument])
         all_dates[date] = date_json
 
     # we can then start up a mapping between those cores and the total list of plant names, which we then map to the download_plany_by_index function
     # this allows us to tackle the independent download tasks in parallel with however many cores we have available.
-    with mp.Pool(mp.cpu_count()) as pool:
-       pool.map(download_plant_by_index,plant_names)
+    # don't download any data, just create the JSON
+    # with mp.Pool(mp.cpu_count()) as pool:
+    #   pool.map(download_plant_by_index,plant_names)
 
 
 # --------------------------------------------------
