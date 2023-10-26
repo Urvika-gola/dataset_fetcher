@@ -1,0 +1,179 @@
+# Look at all the indicies
+GET /_cat/indices
+
+# Look at the index mapping
+GET /phytooracle-index/_mapping
+
+# Query all data
+GET  /phytooracle-index/_search
+{
+  "query": {
+    "match_all": {}
+  }
+}
+
+# Number of data items in the index
+GET /phytooracle-index/_count
+
+# Get documents/plants where Genotype is dummy
+GET /phytooracle-index/_search
+{
+  "query": {
+    "match": {
+      "genotype": "dummy"
+    }
+  }
+}
+
+# Get the instrument type for the Genotype
+GET /phytooracle-index/_search
+{
+  "query": {
+    "match": {
+      "genotype": "dummy"
+    }
+  },
+  "_source": ["instrument"]
+}
+
+# Get the unique Genotypes per season (Season 15) categorized by Genotype
+GET /phytooracle-index/_search
+{
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "term": {
+            "season": 15
+          }
+        }
+      ]
+    }
+  },
+  "aggs": {
+    "unique_genotypes": {
+      "terms": {
+        "field": "genotype",
+        "size": 400
+      }
+    }
+  },
+  "size": 0
+}
+
+# Get the count of unique Genotypes per season (Season 15)
+GET /phytooracle-index/_search
+{
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "term": {
+            "season": 15
+          }
+        }
+      ]
+    }
+  },
+  "aggs": {
+    "unique_genotype_count": {
+      "cardinality": {
+        "field": "genotype"
+      }
+    }
+  },
+  "size": 0
+}
+
+# Number of Scans Processed to Level 2 
+GET /phytooracle-index/_search
+{
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "term": {
+            "level": 2
+          }
+        }
+      ]
+    }
+  },
+  "aggs": {
+    "unique_scan_date_count": {
+      "cardinality": {
+        "field": "scan_date"
+      }
+    }
+  },
+  "track_total_hits": true,
+  "size": "0"
+}
+
+# Get the Number of Plants per Scan
+GET /phytooracle-index/_search
+{
+  "size": 0,
+  "aggs": {
+    "scans": {
+      "terms": {
+        "field": "scan_date",
+        "size": 10000
+      },
+      "aggs": {
+        "unique_plants": {
+          "cardinality": {
+            "field": "plant_name.keyword"
+          }
+        }
+      }
+    }
+  }
+}
+
+# Get the Number of Plants for a specific scan 
+GET /phytooracle-index/_search
+{
+  "query": {
+    "term": {
+      "scan_date": "YYYY-MM-DD__HH-MM-SS-x"
+    }
+  },
+  "size": 0,
+  "track_total_hits": true,
+  "aggs": {
+    "unique_ids": {
+      "cardinality": {
+        "field": "id"
+      }
+    }
+  }
+}
+
+# Nested JSON query 
+GET /phytooracle-index/_search
+{
+  "query": {
+    "bool": {
+      "must": [ 
+        {
+          "match": {
+          "plant_name": "dummy"
+          }
+        },
+        {
+          "nested": {
+            "path": "files",
+            "query": {
+              "match": {
+                "files.filename": "dummy file"
+              }
+            },
+            "inner_hits" : {}
+          }
+        }
+      ]
+    }
+  }
+}
+
