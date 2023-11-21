@@ -23,7 +23,8 @@
           "type": "keyword"
         },
         "scan_date": {
-          "type": "keyword"
+          "type": "date",
+          "format": "basic_date_time"
         },
         "id": {
           "type": "keyword"
@@ -32,10 +33,10 @@
           "type": "nested",
           "properties": {
             "block": {
-              "type": "integer"
+              "type": "text"
             },
             "file_size": {
-              "type": "integer"
+              "type": "text"
             },
             "path": {
               "type": "text"
